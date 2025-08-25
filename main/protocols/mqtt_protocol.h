@@ -14,6 +14,7 @@
 #include <string>
 #include <map>
 #include <mutex>
+
 #define MQTT_PING_INTERVAL_SECONDS 90
 #define MQTT_RECONNECT_INTERVAL_MS 10000
 
@@ -24,49 +25,33 @@ public:
     MqttProtocol();
     ~MqttProtocol();
 
-    void OnIncomingAudio(std::function<void(const std::string& data)> callback);
-    void OnIncomingJson(std::function<void(const cJSON* root)> callback);
-    void SendAudio(const std::string& data);
-    void SendText(const std::string& text);
-    void SendState(const std::string& state);
-    void SendAbort();
-    bool OpenAudioChannel();
-    void CloseAudioChannel();
-    void OnAudioChannelOpened(std::function<void()> callback);
-    void OnAudioChannelClosed(std::function<void()> callback);
-    bool IsAudioChannelOpened() const;
-    int GetServerSampleRate() const;
+    bool Start() override;
+    bool SendAudio(std::unique_ptr<AudioStreamPacket> packet) override;
+    bool OpenAudioChannel() override;
+    void CloseAudioChannel() override;
+    bool IsAudioChannelOpened() const override;
 
 private:
     EventGroupHandle_t event_group_handle_;
 
-    std::function<void(const cJSON* root)> on_incoming_json_;
-    std::function<void(const std::string& data)> on_incoming_audio_;
-    std::function<void()> on_audio_channel_opened_;
-    std::function<void()> on_audio_channel_closed_;
-
-    std::string endpoint_;
-    std::string client_id_;
-    std::string username_;
-    std::string password_;
-    std::string subscribe_topic_;
     std::string publish_topic_;
 
     std::mutex channel_mutex_;
-    Mqtt* mqtt_ = nullptr;
-    Udp* udp_ = nullptr;
+    std::unique_ptr<Mqtt> mqtt_;
+    std::unique_ptr<Udp> udp_;
     mbedtls_aes_context aes_ctx_;
     std::string aes_nonce_;
     std::string udp_server_;
     int udp_port_;
     uint32_t local_sequence_;
     uint32_t remote_sequence_;
-    std::string session_id_;
-    int server_sample_rate_ = 16000;
 
-    bool StartMqttClient();
+    bool StartMqttClient(bool report_error=false);
     void ParseServerHello(const cJSON* root);
     std::string DecodeHexString(const std::string& hex_string);
+
+    bool SendText(const std::string& text) override;
+    std::string GetHelloMessage();
 };
 
 
